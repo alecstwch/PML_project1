@@ -102,9 +102,11 @@ Three descriptors are concatenated and L2-normalised:
 
 1. HSV histogram, 8×8×8 bins (512 numbers), computed with the mask.
 2. Uniform local binary pattern, radius 3, 24 points (26 bins).
-3. Histogram of oriented gradients on a 224×224 image, **16×16** cells, 2×2 blocks, 9 orientations. Masked HSV 8×8×8 and uniform LBP are unchanged.
+3. Histogram of oriented gradients on a 224×224 image, **16×16** cells, 2×2 blocks, 9 orientations.
 
-This is colour plus texture plus edges. It is not a bag-of-words variant. The code that builds it is `HandcraftedFeatures`. Vectors are cached in `features/handcrafted.npz`.
+The first baseline used **8×8** HOG cells. That pack was about **26,782** numbers (512 + 26 + ~26,244 HOG). libsvm RBF on that width was the time bottleneck (~100 minutes for the handcrafted SVM grid). The kept pack uses **16×16** cells: **6,622** numbers (512 + 26 + 6,084 HOG). HSV and LBP were not changed. After the change the cache `features/handcrafted.npz` was rebuilt so the matrices match the 1,747-row split (1,222 / 262 / 263).
+
+This is colour plus texture plus edges. It is not a bag-of-words variant. The code that builds it is `HandcraftedFeatures`.
 
 ### 3.2 Representation 2 — frozen deep features
 
@@ -136,13 +138,15 @@ Features are scaled with `StandardScaler` fit on train only. Distances used by S
 
 The grid is scored on **validation accuracy**, not on test.
 
-**Handcrafted SVM** (this notebook): \(C \in \{0.1, 1, 10, 100\}\), \(\gamma \in \{\texttt{scale}, 10^{-3}, 10^{-2}\}\) for RBF, plus a linear-\(C\) sweep. Platt scaling is **off** (`need_proba=False`) because the ensemble uses the deep SVM, not this pack.
+**Handcrafted SVM** (this notebook, after the 16×16 HOG change): \(C \in \{0.1, 1, 10, 100\}\), \(\gamma \in \{\texttt{scale}\}\) for RBF, linear searched first, default RBF `fit()` skipped because it duplicates a search point. Platt scaling is **off** (`need_proba=False`) because the ensemble uses the deep SVM, not this pack. The locked config is **RBF, \(C=10\), \(\gamma=\texttt{scale}\)**.
 
 **Deep SVM** (frozen EfficientNet, used by the ensemble): the wider default grid \(C \in \{0.1, 1, 10, 100, 1000\}\), \(\gamma \in \{\texttt{scale}, 10^{-4}, 10^{-3}, 10^{-2}, 10^{-1}\}\), `need_proba=True`.
 
 The RBF slice is drawn as a heatmap. The best pair is refit on train. Test is then used once. Confusion matrices are written under `figures/cm_*.png` (criterion e).
 
 The loop is run on handcrafted vectors and again on frozen embeddings. That is one model, two representations.
+
+![Confusion matrix, handcrafted SVM after HOG 16×16](figures/cm_svm_handcrafted.png)
 
 ![SVM heatmap, frozen deep features](figures/svm_heatmap_svm_deep.png)
 
@@ -165,7 +169,7 @@ For B0 the constants are \(\alpha = 1.2\), \(\beta = 1.1\), \(\gamma = 1.15\). W
 
 ### 5.2 Training
 
-Ingest loads 224×224 RGB arrays. **CNN ingest** (EfficientNet / ResNet pipelines) can crop to the leaf with an HSV saturation threshold before the resize, following Esgario et al. Training uses horizontal and vertical flips, a small brightness change, and MixUp. MixUp forms a new example
+**EfficientNet ingest** crops to the leaf with an HSV saturation threshold, then resizes to 224×224 (Esgario-style). MixUp is kept. Training also uses horizontal and vertical flips and a small brightness change. MixUp forms a new example
 
 \[
 \tilde{x} = \lambda x_i + (1-\lambda) x_j,\quad
@@ -176,7 +180,7 @@ with \(\lambda\) drawn from a Beta(0.2, 0.2) law. Esgario et al. already tried M
 
 Phase 1 freezes the backbone and trains the head. Phase 2 opens the last layers at a lower learning rate. Early stopping watches validation loss. Class weights are balanced.
 
-A small grid over learning rate and how many layers to unfreeze is scored on validation accuracy. Training curves are saved. Test is scored once.
+A small grid over learning rate \(\{10^{-4}, 10^{-5}\}\) and last-20-layer unfreeze is scored on validation accuracy. The locked EfficientNet config is **lr = \(10^{-4}\), dropout 0.3, unfreeze 20, HSV-S crop on**. Training curves are saved. Test is scored once.
 
 ![EfficientNet-B0 training curves](figures/curves_efficientnet_b0.png)
 
@@ -200,15 +204,37 @@ A small grid over learning rate and how many layers to unfreeze is scored on val
 
 ## 7. Findings
 
-Full notebook run on the WSL GPU kernel (`pml-wsl-gpu`). Dataset: 1,747 kept images, split 1,222 / 262 / 263. Values from `results/final_results.csv`. The handcrafted SVM row is from Loop A (HOG 16×16, 6,622-d vectors) on that split. Other SVM/XGBoost rows still come from the earlier frozen-deep cache protocol; CNN rows are from the 1,747-row split.
+Full notebook run on the WSL GPU kernel (`pml-wsl-gpu`). Dataset: 1,747 kept images, split 1,222 / 262 / 263. Values from `results/final_results.csv`.
+
+Two feature changes beat the previous official rows, so they are the numbers below.
+
+**Handcrafted SVM (HOG cells 8×8 → 16×16; search trimmed to linear-first + RBF \(\gamma=\texttt{scale}\); default RBF `fit()` dropped):**
+
+| | Val acc | Test acc | Macro F1 | Locked params | Wall time |
+|---|---|---|---|---|---|
+| Before | 64.5% | 62.2% | 0.470 | linear, C=0.1 | ~100 min (16 RBF/linear fits on 26,782-d) |
+| After | **66.8%** | **68.8%** | **0.519** | RBF, C=10, γ=scale | **36 s** extract 64 s (8 fits on 6,622-d) |
+
+Per-class test F1 after: Healthy 0.63, Miner 0.67, Rust 0.73, Phoma 0.86, Cercospora 0.23, Mixed 0.00 (n_test = 263).
+
+**EfficientNet-B0 (HSV saturation leaf crop before 224×224; MixUp kept):**
+
+| | Val acc | Test acc | Macro F1 | Locked params |
+|---|---|---|---|---|
+| Before (no leaf crop) | 78.2% | 76.7% | 0.652 | lr=\(10^{-4}\), dropout 0.3, unfreeze 20 |
+| After (HSV-S crop) | 78.2% | **79.8%** | **0.682** | lr=\(10^{-4}\), dropout 0.3, unfreeze 20, hsv_crop=True |
+
+Per-class test F1 after: Healthy 0.89, Miner 0.81, Rust 0.85, Phoma 0.88, Cercospora 0.58, Mixed 0.09.
+
+PCA-256 on frozen embeddings was **not** better than the 1,280-d SVM (79.0% / 0.609 vs 82.1% / 0.698), so the official deep SVM is unchanged.
 
 | Model | Features | Val acc | Test acc | Macro F1 | Best params (val) |
 |---|---|---|---|---|---|
-| SVM | handcrafted | 66.8% | 68.8% | 0.519 | RBF, C=10, γ=scale |
+| SVM | handcrafted (HOG 16×16) | 66.8% | 68.8% | 0.519 | RBF, C=10, γ=scale |
 | SVM | frozen EfficientNet | 82.8% | **82.1%** | 0.698 | RBF, C=100, γ=1e-4 |
 | SVM-linear (ablation) | frozen EfficientNet | 82.1% | 80.5% | 0.684 | linear, C=0.1 |
 | SVM | deep PCA-256 | 79.8% | 79.0% | 0.609 | RBF, C=10, γ=scale |
-| EfficientNet-B0 | raw images (HSV-S crop) | 78.2% | 79.8% | 0.682 | lr=1e-4, dropout=0.3, unfreeze=20, hsv_crop |
+| EfficientNet-B0 | HSV-S crop + MixUp | 78.2% | 79.8% | 0.682 | lr=1e-4, dropout=0.3, unfreeze=20, hsv_crop |
 | EfficientNet-B0 (no MixUp) | raw images | 78.6% | 77.9% | 0.672 | lr=1e-5 |
 | XGBoost | handcrafted | 77.9% | 78.2% | 0.600 | n_est=200, depth=5, lr=0.05 |
 | XGBoost | frozen EfficientNet | 83.2% | 81.7% | 0.680 | n_est=500, depth=3, lr=0.05 |
@@ -285,7 +311,9 @@ The honest comparison with Esgario et al. is a ResNet-50 trained on our 6-class 
 
 **XGBoost:** n_estimators in {200, 500}; max_depth in {3, 5, 7}; learning_rate in {0.05, 0.1}; subsample 0.8; colsample_bytree 0.8.
 
-**EfficientNet / ResNet (default small grid):** learning rate in {1e-4, 1e-5}; dropout 0.3; last 20 layers unfrozen in phase 2.
+**EfficientNet (official, after HSV-S crop):** learning rate in {1e-4, 1e-5}; dropout 0.3; last 20 layers unfrozen in phase 2; MixUp on; HSV saturation crop on ingest. Locked: lr=1e-4.
+
+**ResNet-50 (extra, no HSV crop in the comparison row):** learning rate 1e-5; dropout 0.3; last 20 layers unfrozen.
 
 **Residual rule:** \(\tau\) in {0.30, 0.40, 0.50, 0.60}; \(\delta\) in {0.05, 0.10, 0.15, 0.20}, chosen on validation macro F1.
 
