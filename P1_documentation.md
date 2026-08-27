@@ -14,7 +14,7 @@ This report describes a six-class classifier for the predominant biotic stress o
 
 ResNet-50 is run as a third method because it is the backbone family used by Esgario et al. (2020). XGBoost is kept as a cheap baseline on the same cached vectors. MixUp, a probability ensemble, and a residual rule for the rare Mixed class are extra checks, not replacements for the official 6-class task.
 
-Numeric scores are produced by `P1_notebook.ipynb` and written to `results/final_results.csv`. They must be read from that file after a full run. They are not copied from an older notebook.
+Numeric scores below come from a full run of `P1_notebook.ipynb` (WSL GPU kernel). They are also stored in `results/final_results.csv`. After `688.jpg` was repaired, **1,747** rows are kept (0 missing, 0 corrupt). Feature caches were rebuilt to that table. The split is 1,222 / 262 / 263.
 
 ---
 
@@ -26,7 +26,7 @@ Numeric scores are produced by `P1_notebook.ipynb` and written to `results/final
 4. Procedure — Model 1 (SVM)
 5. Procedure — Model 2 (EfficientNet)
 6. Extra methods
-7. Findings (how to read the artefacts)
+7. Findings
 8. Comparison with literature
 9. Conclusions
 10. References
@@ -51,7 +51,20 @@ The reader of this report is assumed to know basic supervised learning (train / 
 
 The images come from the BRACOL leaf set collected in Espírito Santo, Brazil (Esgario et al., 2020). Leaves were photographed from the abaxial side on a white background with five phones: ASUS Zenfone 2, Xiaomi Redmi 5A, Xiaomi S2, Galaxy S8 and iPhone 6S.
 
-The CSV has 1,747 rows. A row is kept only if `{id}.jpg` exists and the JPEG fully decodes. A previous copy of the files had 1,402 images on disk and 1,401 after dropping one truncated file. The notebook prints the actual counts. About one fifth of the CSV rows have no file in this download; that is a **20% gap**, not an 80% cut.
+The CSV has **1,747** rows. A row is kept only if `{id}.jpg` exists and the JPEG fully decodes. Missing files were filled from Dataset Ninja (**Coffee Leaf Biotic Stress**) and from Roboflow/YOLO dumps already on disk, so this run has **0 missing files** and **0 corrupt JPEGs** (`688.jpg` was repaired). **1,747** rows are kept. Every JPEG on disk is **2048×1024**; models resize to 224×224.
+
+Class counts on the loaded table (Healthy is no longer the 142 of an earlier incomplete download):
+
+| Label | Name | Count |
+|---|---|---|
+| 0 | Healthy | 272 |
+| 1 | Miner | 387 |
+| 2 | Rust | 531 |
+| 3 | Phoma | 348 |
+| 4 | Cercospora | 147 |
+| 5 | Mixed | 62 |
+
+Those six counts sum to 1,747, which matches the kept table. Mixed stays in the task.
 
 Each row has:
 
@@ -63,13 +76,15 @@ Severity bins follow the paper in spirit (healthy under 0.1%, then very low / lo
 
 Class 5 (Mixed) is kept. Esgario et al. dropped 62 leaves where two stresses had similar severity and trained a **five-class** Leaf task on 1,685 images. That difference is stated again in Section 8.
 
+![Class distribution](figures/class_distribution.png)
+
 ### 2.2 Split (criterion h)
 
 One stratified split is used for every model:
 
-- train 70%
-- validation 15%
-- test 15%
+- train 70% — **1,222**
+- validation 15% — **262**
+- test 15% — **263**
 
 Indices are saved to `features/split_ids.npz`. The test set is scored once, after the hyperparameters are locked. The validation set is used for grids and for early stopping.
 
@@ -87,9 +102,9 @@ Three descriptors are concatenated and L2-normalised:
 
 1. HSV histogram, 8×8×8 bins (512 numbers), computed with the mask.
 2. Uniform local binary pattern, radius 3, 24 points (26 bins).
-3. Histogram of oriented gradients on a 224×224 image, 8×8 cells, 2×2 blocks, 9 orientations.
+3. Histogram of oriented gradients on a 224×224 image, 8×8 cells, 2×2 blocks, 9 orientations (~26,782 numbers). That HOG size is the main cost of the handcrafted SVM.
 
-This is colour plus texture plus edges. It is not a bag-of-words variant. The code that builds it is `HandcraftedFeatures` in `p1_core.py`. Vectors are cached in `features/handcrafted.npz`.
+This is colour plus texture plus edges. It is not a bag-of-words variant. The code that builds it is `HandcraftedFeatures`. Vectors are cached in `features/handcrafted.npz`.
 
 ### 3.2 Representation 2 — frozen deep features
 
@@ -119,15 +134,19 @@ Features are scaled with `StandardScaler` fit on train only. Distances used by S
 
 ### 4.2 Search (criterion d)
 
-The grid is scored on **validation accuracy**, not on test:
+The grid is scored on **validation accuracy**, not on test.
 
-- \(C \in \{0.1, 1, 10, 100, 1000\}\)
-- \(\gamma \in \{\texttt{scale}, 10^{-4}, 10^{-3}, 10^{-2}, 10^{-1}\}\) for RBF
-- kernel: RBF and linear (linear is an ablation, mainly on deep features)
+**Handcrafted SVM** (this notebook): \(C \in \{0.1, 1, 10, 100\}\), \(\gamma \in \{\texttt{scale}, 10^{-3}, 10^{-2}\}\) for RBF, plus a linear-\(C\) sweep. Platt scaling is **off** (`need_proba=False`) because the ensemble uses the deep SVM, not this pack.
 
-The RBF slice is drawn as a heatmap (`figures/svm_heatmap_*.png`). The best pair is refit on train with `probability=True` so later ensembles can average scores. Test is then used once. Confusion matrices are written under `figures/cm_*.png` (criterion e).
+**Deep SVM** (frozen EfficientNet, used by the ensemble): the wider default grid \(C \in \{0.1, 1, 10, 100, 1000\}\), \(\gamma \in \{\texttt{scale}, 10^{-4}, 10^{-3}, 10^{-2}, 10^{-1}\}\), `need_proba=True`.
+
+The RBF slice is drawn as a heatmap. The best pair is refit on train. Test is then used once. Confusion matrices are written under `figures/cm_*.png` (criterion e).
 
 The loop is run on handcrafted vectors and again on frozen embeddings. That is one model, two representations.
+
+![SVM heatmap, frozen deep features](figures/svm_heatmap_svm_deep.png)
+
+![Confusion matrix, SVM on frozen deep features](figures/cm_svm_deep.png)
 
 ---
 
@@ -157,7 +176,11 @@ with \(\lambda\) drawn from a Beta(0.2, 0.2) law. Esgario et al. already tried M
 
 Phase 1 freezes the backbone and trains the head. Phase 2 opens the last layers at a lower learning rate. Early stopping watches validation loss. Class weights are balanced.
 
-A small grid over learning rate and how many layers to unfreeze is scored on validation accuracy. Training curves are saved (`figures/curves_*.png`). Test is scored once.
+A small grid over learning rate and how many layers to unfreeze is scored on validation accuracy. Training curves are saved. Test is scored once.
+
+![EfficientNet-B0 training curves](figures/curves_efficientnet_b0.png)
+
+![Confusion matrix, EfficientNet-B0](figures/cm_efficientnet_b0.png)
 
 ---
 
@@ -177,29 +200,34 @@ A small grid over learning rate and how many layers to unfreeze is scored on val
 
 ## 7. Findings
 
-Run `P1_notebook.ipynb` (or `P1_notebook.py`) to fill `results/final_results.csv` and the figures. The table has one row per configuration:
+Full notebook run on the WSL GPU kernel (`pml-wsl-gpu`). Dataset: 1,747 kept images, split 1,222 / 262 / 263. Values from `results/final_results.csv`. SVM rows below were measured on the previous 1,746-row feature cache; they are refreshed only when that model's features change. CNN rows are from the 1,747-row split.
 
-| Model | Features | Val acc | Test acc | Macro F1 |
-|---|---|---|---|---|
-| SVM-RBF | handcrafted | | | |
-| SVM-RBF | frozen EfficientNet | | | |
-| SVM-linear | frozen EfficientNet | | | |
-| XGBoost | handcrafted | | | |
-| XGBoost | frozen EfficientNet | | | |
-| EfficientNet-B0 | raw images | | | |
-| ResNet-50 | raw images | | | |
-| Ensemble | SVM-deep + EfficientNet | | | |
-| SVM-deep + residual rule | frozen EfficientNet | | | |
+| Model | Features | Val acc | Test acc | Macro F1 | Best params (val) |
+|---|---|---|---|---|---|
+| SVM | handcrafted | 64.5% | 62.2% | 0.470 | linear, C=0.1 |
+| SVM | frozen EfficientNet | 82.8% | **82.1%** | 0.698 | RBF, C=100, γ=1e-4 |
+| SVM-linear (ablation) | frozen EfficientNet | 82.1% | 80.5% | 0.684 | linear, C=0.1 |
+| SVM | deep PCA-256 | 79.8% | 79.0% | 0.609 | RBF, C=10, γ=scale |
+| EfficientNet-B0 | raw images | 78.2% | 76.7% | 0.652 | lr=1e-4, dropout=0.3, unfreeze=20 |
+| EfficientNet-B0 (no MixUp) | raw images | 78.6% | 77.9% | 0.672 | lr=1e-5 |
+| XGBoost | handcrafted | 77.9% | 78.2% | 0.600 | n_est=200, depth=5, lr=0.05 |
+| XGBoost | frozen EfficientNet | 83.2% | 81.7% | 0.680 | n_est=500, depth=3, lr=0.05 |
+| ResNet-50 | raw images | 82.1% | 80.9% | 0.677 | lr=1e-5, dropout=0.3, unfreeze=20 |
+| Ensemble | SVM-deep + EfficientNet | — | 80.9% | 0.648 | mean probability |
+| Ensemble | SVM-deep + EffNet + ResNet | — | **84.4%** | **0.711** | mean probability |
+| SVM-deep + residual rule | frozen EfficientNet | 67.9% | 63.7% | 0.598 | τ=0.6, δ=0.15 |
+
+![Test accuracy by configuration](figures/final_accuracy_bars.png)
 
 What to look at, in order:
 
-1. **Figure `class_distribution.png`.** Mixed is small. Macro F1 will be harsh on that class.
-2. **SVM heatmaps.** If deep features are already easy to separate, the linear kernel should be close to RBF and the useful \(\gamma\) values will sit near `scale`.
-3. **Confusion matrices.** Phoma vs Cercospora (both brown spots) and Mixed vs everything are the likely collisions.
-4. **CNN curves.** If validation loss turns up while training loss falls, stop earlier or freeze more layers.
-5. **Residual-rule row vs plain SVM.** If macro F1 rises and accuracy stays similar, the rule is helping Mixed without wrecking the other classes.
+1. **Figure `class_distribution.png`.** Mixed (62) and Cercospora (147) are small. Macro F1 will be harsh on those classes. Handcrafted SVM is the weakest official row (62.2% test acc, 0.47 macro F1); linear C=0.1 beat RBF on that ~26k-d pack.
+2. **SVM heatmaps.** On frozen deep features, RBF at C=100, γ=1e-4 is best; linear is close (80.5% vs 82.1% test). PCA-256 is a bit worse and is not used as the official deep SVM.
+3. **Confusion matrices.** Phoma vs Cercospora (both brown spots) and Mixed vs everything are the likely collisions. See `cm_svm_deep.png` and `cm_efficientnet_b0.png`.
+4. **CNN curves.** EfficientNet’s official test acc (76.7%) lags ResNet-50 (80.9%) on the same protocol. The no-MixUp EfficientNet row at lr=1e-5 is slightly higher (77.9%) than MixUp at lr=1e-4.
+5. **Residual-rule row vs plain SVM.** The rule **hurt** accuracy (63.7% vs 82.1%) and did not justify replacing the six-class SVM.
 
-Do not treat a previous XGBoost run (about 82% accuracy on a similar split) as a result of this notebook.
+Do not treat a previous XGBoost run (about 82% accuracy on a similar split) as a result of this notebook. The XGBoost rows above are from this run.
 
 ---
 
@@ -218,12 +246,12 @@ They do not headline a 93% macro F1. They used **1,685** images and **five** cla
 
 Manso, G.L., Knidel, H., Krohling, R.A. and Ventura, J.A. (2019) is the earlier segmentation work (miner vs rust, handcrafted features on lesions) that the 2020 paper extends.
 
-A gap between our test accuracy and 95.63% is expected, and should be explained by:
+A gap between our ResNet-50 test accuracy (80.9%) and 95.63% is expected, and should be explained by:
 
-1. fewer images (missing files in this download)
-2. six classes including Mixed, versus five
-3. no specialist leaf crop unless we add one
-4. a different random split, even at the same 70 / 15 / 15 ratios
+1. **Missing files are filled.** The remaining gap is not “20% of the CSV had no JPEG”. This run uses all **1,747** CSV rows (0 missing, 0 corrupt after repairing `688.jpg`).
+2. **Six classes including Mixed**, versus five. Mixed is rare and easy to confuse with a single disease.
+3. **No specialist leaf crop** of the kind Esgario applied (HSV saturation threshold before 224×224), unless we add one.
+4. **A different random split**, even at the same 70 / 15 / 15 ratios.
 
 Our ResNet-50 run is the fairest row to put next to their ResNet50, with those caveats written beside the number.
 
@@ -233,7 +261,7 @@ Our ResNet-50 run is the fairest row to put next to their ResNet50, with those c
 
 The project is built as a shared data corridor and then a full grading loop per official model: SVM first, EfficientNet second. Handcrafted and frozen-deep vectors are different representations. The split is stored and reused. Test is not used to pick C, gamma, learning rate or MixUp thresholds.
 
-Mixed is kept. The residual rule is an extra attempt to catch leaves that are not healthy and not clearly one of classes 1–4. MixUp and the ensemble are extra as well.
+On this baseline run, the strongest **official** single model is SVM on frozen EfficientNet embeddings (82.1% test acc, 0.698 macro F1). Fine-tuned EfficientNet-B0 is lower (76.7%). A three-way probability ensemble with ResNet-50 reaches 84.4% / 0.711, which is extra, not a substitute for the two official methods. Mixed is kept. The residual Mixed rule hurt accuracy and is not used as the official predictor.
 
 The honest comparison with Esgario et al. is a ResNet-50 trained on our 6-class subset, not a claim that EfficientNet-B0 should match 95.63% on a different task.
 
@@ -251,11 +279,13 @@ The honest comparison with Esgario et al. is a ResNet-50 trained on our 6-class 
 
 ## Appendix A — Hyperparameter grids
 
-**SVM:** C in {0.1, 1, 10, 100, 1000}; gamma in {scale, 1e-4, 1e-3, 1e-2, 1e-1}; kernel in {rbf, linear}.
+**SVM, handcrafted pack (notebook):** \(C \in \{0.1, 1, 10, 100\}\); \(\gamma \in \{\texttt{scale}, 10^{-3}, 10^{-2}\}\); kernel in {rbf, linear}; `need_proba=False`.
+
+**SVM, frozen deep pack (notebook, ensemble):** \(C \in \{0.1, 1, 10, 100, 1000\}\); \(\gamma \in \{\texttt{scale}, 10^{-4}, 10^{-3}, 10^{-2}, 10^{-1}\}\); kernel in {rbf, linear}; `need_proba=True`.
 
 **XGBoost:** n_estimators in {200, 500}; max_depth in {3, 5, 7}; learning_rate in {0.05, 0.1}; subsample 0.8; colsample_bytree 0.8.
 
-**EfficientNet / ResNet (default small grid):** learning rate in {1e-4, 1e-5}; dropout 0.3; last 20 layers unfrozen in phase 2. Widen the list in the notebook if GPU time allows.
+**EfficientNet / ResNet (default small grid):** learning rate in {1e-4, 1e-5}; dropout 0.3; last 20 layers unfrozen in phase 2.
 
 **Residual rule:** \(\tau\) in {0.30, 0.40, 0.50, 0.60}; \(\delta\) in {0.05, 0.10, 0.15, 0.20}, chosen on validation macro F1.
 
@@ -272,4 +302,4 @@ P1_Soare_Alecsandru_{group}_doc/
     figures used in the PDF
 ```
 
-Do not zip the leaf images or the CSV. Unit tests in `tests/` are for local checks and are not required in the zip.
+Do not zip the leaf images or the CSV. Unit tests in `tests/` are for local checks and are not required in the zip. The GitHub layout may use `representation/`, `evaluation/`, and `optimization/` packages; `p1_core.py` remains a facade so the notebook can still `from p1_core import ...`.

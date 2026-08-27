@@ -15,6 +15,10 @@ from nbclient.client import NotebookClient
 
 NB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "P1_notebook.ipynb")
 START_AT = int(os.environ.get("START_AT", "0"))
+# Comma-separated notebook cell indices to run, e.g. ONLY_CELLS=2,4,12,14,21
+ONLY_CELLS = {
+    int(x) for x in os.environ.get("ONLY_CELLS", "").replace(" ", "").split(",") if x
+}
 
 
 def main() -> int:
@@ -30,6 +34,11 @@ def main() -> int:
     code_i = 0
     with client.setup_kernel():
         for i, cell in enumerate(nb.cells):
+            if ONLY_CELLS and i not in ONLY_CELLS:
+                if cell.cell_type == "code":
+                    code_i += 1
+                print(f"[{i:02d}] skip (not in ONLY_CELLS)", flush=True)
+                continue
             if i < START_AT:
                 if cell.cell_type == "code":
                     code_i += 1

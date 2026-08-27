@@ -157,10 +157,23 @@ Stratified 70 / 15 / 15. The same indices are saved and reused by every model. H
 
 # --- cell 12 ---
 split_path = os.path.join(PATHS["features_dir"], "split_ids.npz")
-# Rebuild if you change the seed or the filtered table.
+# Reuse the saved split when it covers every kept row. Rebuild (and drop feature
+# caches) only if the filtered table changed.
+split = None
 if os.path.exists(split_path):
-    os.remove(split_path)
-split = TrainValTestSplit.make(dataset, seed=RANDOM_STATE, path=split_path)
+    split = TrainValTestSplit.load(split_path)
+    n_split = len(split.train_idx) + len(split.val_idx) + len(split.test_idx)
+    if n_split != len(dataset.frame):
+        print(f"Split has {n_split} rows, dataset has {len(dataset.frame)}; rebuilding.")
+        os.remove(split_path)
+        split = None
+        for fname in ("handcrafted.npz", "frozen_deep.npz"):
+            p = os.path.join(PATHS["features_dir"], fname)
+            if os.path.isfile(p):
+                os.remove(p)
+                print("Deleted stale feature cache:", p)
+if split is None:
+    split = TrainValTestSplit.make(dataset, seed=RANDOM_STATE, path=split_path)
 split.assert_disjoint()
 print("Sizes:", split.sizes())
 
