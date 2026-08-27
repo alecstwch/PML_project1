@@ -3,7 +3,7 @@ SVM,handcrafted,0.6679389312977099,0.688212927756654,0.5194401267592057,"{'kerne
 SVM,deep (frozen EffNet),0.8282442748091603,0.8206106870229007,0.6979772903646144,"{'kernel': 'rbf', 'C': 100, 'gamma': 0.0001}"
 SVM-linear (ablation),deep (frozen EffNet),0.8206106870229007,0.8053435114503816,0.6837798205773922,"{'kernel': 'linear', 'C': 0.1}"
 SVM,deep PCA-256,0.7977099236641222,0.7900763358778626,0.6090600199195503,"{'kernel': 'rbf', 'C': 10, 'gamma': 'scale'}"
-EfficientNet-B0,raw images,0.7824427480916031,0.767175572519084,0.6517284641397751,"{'lr': 0.0001, 'dropout': 0.3, 'unfreeze': 20}"
+EfficientNet-B0,raw images,0.7824427480916031,0.7984790874524715,0.6822868487998314,"{'lr': 0.0001, 'dropout': 0.3, 'unfreeze': 20, 'hsv_crop': True}"
 XGBoost,handcrafted,0.7786259541984732,0.7824427480916031,0.6004552323737383,"{'n_estimators': 200, 'max_depth': 5, 'learning_rate': 0.05}"
 XGBoost,deep (frozen EffNet),0.8320610687022901,0.816793893129771,0.6800370443771383,"{'n_estimators': 500, 'max_depth': 3, 'learning_rate': 0.05}"
 ResNet-50,raw images,0.8206106870229007,0.8091603053435115,0.6774479971180614,"{'lr': 1e-05, 'dropout': 0.3, 'unfreeze': 20}"

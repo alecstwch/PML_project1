@@ -357,7 +357,7 @@ Margin classifiers on frozen CNN embeddings are a standard transfer-learning pro
 md("""
 ## 9. Model 2 — EfficientNet-B0, full grading loop
 
-Personalized ingest: raw 224×224 RGB. MixUp plus flips. Phase 1 trains the head with a frozen backbone. Phase 2 opens the last layers at a lower learning rate. Early stopping watches validation loss. Test is scored once after search.
+Personalized ingest: HSV saturation crop to the leaf, then 224×224 RGB. MixUp plus flips. Phase 1 trains the head with a frozen backbone. Phase 2 opens the last layers at a lower learning rate. Early stopping watches validation loss. Test is scored once after search.
 """)
 
 code("""
@@ -369,6 +369,7 @@ effnet = EfficientNetPipeline(
     figures_dir=PATHS["figures_dir"],
     models_dir=PATHS["models_dir"],
     use_mixup=True,
+    ingest_hsv_crop=True,
     epochs_head=12,
     epochs_ft=20,
     batch_size=16,

@@ -1,0 +1,16 @@
+{
+  "elapsed_s": 338.43085479800357,
+  "test_acc": 0.7984790874524715,
+  "macro_f1": 0.6822868487998314,
+  "baseline_acc": 0.767175572519084,
+  "baseline_f1": 0.6517284641397751,
+  "acc_ok": true,
+  "f1_ok": true,
+  "commit": true,
+  "best_params": {
+    "lr": 0.0001,
+    "dropout": 0.3,
+    "unfreeze": 20,
+    "hsv_crop": true
+  }
+}

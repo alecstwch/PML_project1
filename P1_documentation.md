@@ -165,7 +165,7 @@ For B0 the constants are \(\alpha = 1.2\), \(\beta = 1.1\), \(\gamma = 1.15\). W
 
 ### 5.2 Training
 
-Ingest loads 224×224 RGB arrays. Training uses horizontal and vertical flips, a small brightness change, and MixUp. MixUp forms a new example
+Ingest loads 224×224 RGB arrays. **CNN ingest** (EfficientNet / ResNet pipelines) can crop to the leaf with an HSV saturation threshold before the resize, following Esgario et al. Training uses horizontal and vertical flips, a small brightness change, and MixUp. MixUp forms a new example
 
 \[
 \tilde{x} = \lambda x_i + (1-\lambda) x_j,\quad
@@ -208,7 +208,7 @@ Full notebook run on the WSL GPU kernel (`pml-wsl-gpu`). Dataset: 1,747 kept ima
 | SVM | frozen EfficientNet | 82.8% | **82.1%** | 0.698 | RBF, C=100, γ=1e-4 |
 | SVM-linear (ablation) | frozen EfficientNet | 82.1% | 80.5% | 0.684 | linear, C=0.1 |
 | SVM | deep PCA-256 | 79.8% | 79.0% | 0.609 | RBF, C=10, γ=scale |
-| EfficientNet-B0 | raw images | 78.2% | 76.7% | 0.652 | lr=1e-4, dropout=0.3, unfreeze=20 |
+| EfficientNet-B0 | raw images (HSV-S crop) | 78.2% | 79.8% | 0.682 | lr=1e-4, dropout=0.3, unfreeze=20, hsv_crop |
 | EfficientNet-B0 (no MixUp) | raw images | 78.6% | 77.9% | 0.672 | lr=1e-5 |
 | XGBoost | handcrafted | 77.9% | 78.2% | 0.600 | n_est=200, depth=5, lr=0.05 |
 | XGBoost | frozen EfficientNet | 83.2% | 81.7% | 0.680 | n_est=500, depth=3, lr=0.05 |
@@ -224,7 +224,7 @@ What to look at, in order:
 1. **Figure `class_distribution.png`.** Mixed (62) and Cercospora (147) are small. Macro F1 will be harsh on those classes. After shrinking HOG to 16×16 cells, the handcrafted SVM is RBF C=10 (68.8% test acc, 0.519 macro F1) and finishes in about 36 seconds instead of ~100 minutes.
 2. **SVM heatmaps.** On frozen deep features, RBF at C=100, γ=1e-4 is best; linear is close (80.5% vs 82.1% test). PCA-256 is a bit worse and is not used as the official deep SVM.
 3. **Confusion matrices.** Phoma vs Cercospora (both brown spots) and Mixed vs everything are the likely collisions. See `cm_svm_deep.png` and `cm_efficientnet_b0.png`.
-4. **CNN curves.** EfficientNet’s official test acc (76.7%) lags ResNet-50 (80.9%) on the same protocol. The no-MixUp EfficientNet row at lr=1e-5 is slightly higher (77.9%) than MixUp at lr=1e-4.
+4. **CNN curves.** EfficientNet with an HSV-S leaf crop reaches **79.8%** test acc / 0.682 macro F1 (lr=1e-4), closer to ResNet-50 (80.9%) than the uncropped MixUp run (76.7%). PCA-256 on frozen embeddings did **not** match the 1,280-d SVM (79.0% vs 82.1%), so the official deep SVM stays on the full embedding.
 5. **Residual-rule row vs plain SVM.** The rule **hurt** accuracy (63.7% vs 82.1%) and did not justify replacing the six-class SVM.
 
 Do not treat a previous XGBoost run (about 82% accuracy on a similar split) as a result of this notebook. The XGBoost rows above are from this run.
@@ -250,7 +250,7 @@ A gap between our ResNet-50 test accuracy (80.9%) and 95.63% is expected, and sh
 
 1. **Missing files are filled.** The remaining gap is not “20% of the CSV had no JPEG”. This run uses all **1,747** CSV rows (0 missing, 0 corrupt after repairing `688.jpg`).
 2. **Six classes including Mixed**, versus five. Mixed is rare and easy to confuse with a single disease.
-3. **No specialist leaf crop** of the kind Esgario applied (HSV saturation threshold before 224×224), unless we add one.
+3. **Specialist leaf crop.** EfficientNet ingest now uses an HSV saturation crop before 224×224 (Esgario-style). The ResNet-50 comparison row above was trained without that crop.
 4. **A different random split**, even at the same 70 / 15 / 15 ratios.
 
 Our ResNet-50 run is the fairest row to put next to their ResNet50, with those caveats written beside the number.
@@ -261,7 +261,7 @@ Our ResNet-50 run is the fairest row to put next to their ResNet50, with those c
 
 The project is built as a shared data corridor and then a full grading loop per official model: SVM first, EfficientNet second. Handcrafted and frozen-deep vectors are different representations. The split is stored and reused. Test is not used to pick C, gamma, learning rate or MixUp thresholds.
 
-On this baseline run, the strongest **official** single model is SVM on frozen EfficientNet embeddings (82.1% test acc, 0.698 macro F1). Fine-tuned EfficientNet-B0 is lower (76.7%). A three-way probability ensemble with ResNet-50 reaches 84.4% / 0.711, which is extra, not a substitute for the two official methods. Mixed is kept. The residual Mixed rule hurt accuracy and is not used as the official predictor.
+On this baseline run, the strongest **official** single model is SVM on frozen EfficientNet embeddings (82.1% test acc, 0.698 macro F1). Fine-tuned EfficientNet-B0 with an HSV-S leaf crop is 79.8% / 0.682. A three-way probability ensemble with ResNet-50 reaches 84.4% / 0.711, which is extra, not a substitute for the two official methods. Mixed is kept. The residual Mixed rule hurt accuracy and is not used as the official predictor.
 
 The honest comparison with Esgario et al. is a ResNet-50 trained on our 6-class subset, not a claim that EfficientNet-B0 should match 95.63% on a different task.
 
