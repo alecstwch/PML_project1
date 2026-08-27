@@ -214,7 +214,7 @@ for name, idx in [("train", split.train_idx), ("val", split.val_idx), ("test", s
 md("""
 ## 5. FE1 — Handcrafted features (criterion c)
 
-White-background mask, then HSV histogram (512), uniform LBP (26), HOG on 224×224 with 8×8 cells. Concatenate and L2-normalise. Cache to disk.
+White-background mask, then HSV histogram (512), uniform LBP (26), HOG on 224×224 with 16×16 cells. Concatenate and L2-normalise. Cache to disk.
 """)
 
 code("""
@@ -289,7 +289,9 @@ svm_hc = SVMPipeline(
     results_dir=PATHS["results_dir"], figures_dir=PATHS["figures_dir"],
     need_proba=False,
     C_grid=[0.1, 1, 10, 100],
-    gamma_grid=["scale", 1e-3, 1e-2],
+    gamma_grid=["scale"],
+    search_linear_first=True,
+    skip_default_fit=True,
 )
 svm_hc.run()
 record("SVM", "handcrafted", svm_hc)

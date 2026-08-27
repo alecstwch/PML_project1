@@ -102,7 +102,7 @@ Three descriptors are concatenated and L2-normalised:
 
 1. HSV histogram, 8×8×8 bins (512 numbers), computed with the mask.
 2. Uniform local binary pattern, radius 3, 24 points (26 bins).
-3. Histogram of oriented gradients on a 224×224 image, 8×8 cells, 2×2 blocks, 9 orientations (~26,782 numbers). That HOG size is the main cost of the handcrafted SVM.
+3. Histogram of oriented gradients on a 224×224 image, **16×16** cells, 2×2 blocks, 9 orientations. Masked HSV 8×8×8 and uniform LBP are unchanged.
 
 This is colour plus texture plus edges. It is not a bag-of-words variant. The code that builds it is `HandcraftedFeatures`. Vectors are cached in `features/handcrafted.npz`.
 
@@ -200,11 +200,11 @@ A small grid over learning rate and how many layers to unfreeze is scored on val
 
 ## 7. Findings
 
-Full notebook run on the WSL GPU kernel (`pml-wsl-gpu`). Dataset: 1,747 kept images, split 1,222 / 262 / 263. Values from `results/final_results.csv`. SVM rows below were measured on the previous 1,746-row feature cache; they are refreshed only when that model's features change. CNN rows are from the 1,747-row split.
+Full notebook run on the WSL GPU kernel (`pml-wsl-gpu`). Dataset: 1,747 kept images, split 1,222 / 262 / 263. Values from `results/final_results.csv`. The handcrafted SVM row is from Loop A (HOG 16×16, 6,622-d vectors) on that split. Other SVM/XGBoost rows still come from the earlier frozen-deep cache protocol; CNN rows are from the 1,747-row split.
 
 | Model | Features | Val acc | Test acc | Macro F1 | Best params (val) |
 |---|---|---|---|---|---|
-| SVM | handcrafted | 64.5% | 62.2% | 0.470 | linear, C=0.1 |
+| SVM | handcrafted | 66.8% | 68.8% | 0.519 | RBF, C=10, γ=scale |
 | SVM | frozen EfficientNet | 82.8% | **82.1%** | 0.698 | RBF, C=100, γ=1e-4 |
 | SVM-linear (ablation) | frozen EfficientNet | 82.1% | 80.5% | 0.684 | linear, C=0.1 |
 | SVM | deep PCA-256 | 79.8% | 79.0% | 0.609 | RBF, C=10, γ=scale |
@@ -221,7 +221,7 @@ Full notebook run on the WSL GPU kernel (`pml-wsl-gpu`). Dataset: 1,747 kept ima
 
 What to look at, in order:
 
-1. **Figure `class_distribution.png`.** Mixed (62) and Cercospora (147) are small. Macro F1 will be harsh on those classes. Handcrafted SVM is the weakest official row (62.2% test acc, 0.47 macro F1); linear C=0.1 beat RBF on that ~26k-d pack.
+1. **Figure `class_distribution.png`.** Mixed (62) and Cercospora (147) are small. Macro F1 will be harsh on those classes. After shrinking HOG to 16×16 cells, the handcrafted SVM is RBF C=10 (68.8% test acc, 0.519 macro F1) and finishes in about 36 seconds instead of ~100 minutes.
 2. **SVM heatmaps.** On frozen deep features, RBF at C=100, γ=1e-4 is best; linear is close (80.5% vs 82.1% test). PCA-256 is a bit worse and is not used as the official deep SVM.
 3. **Confusion matrices.** Phoma vs Cercospora (both brown spots) and Mixed vs everything are the likely collisions. See `cm_svm_deep.png` and `cm_efficientnet_b0.png`.
 4. **CNN curves.** EfficientNet’s official test acc (76.7%) lags ResNet-50 (80.9%) on the same protocol. The no-MixUp EfficientNet row at lr=1e-5 is slightly higher (77.9%) than MixUp at lr=1e-4.
@@ -279,7 +279,7 @@ The honest comparison with Esgario et al. is a ResNet-50 trained on our 6-class 
 
 ## Appendix A — Hyperparameter grids
 
-**SVM, handcrafted pack (notebook):** \(C \in \{0.1, 1, 10, 100\}\); \(\gamma \in \{\texttt{scale}, 10^{-3}, 10^{-2}\}\); kernel in {rbf, linear}; `need_proba=False`.
+**SVM, handcrafted pack (notebook):** \(C \in \{0.1, 1, 10, 100\}\); \(\gamma \in \{\texttt{scale}\}\); kernel in {rbf, linear} with linear searched first; `need_proba=False`; default RBF `fit()` skipped because it duplicates a search point.
 
 **SVM, frozen deep pack (notebook, ensemble):** \(C \in \{0.1, 1, 10, 100, 1000\}\); \(\gamma \in \{\texttt{scale}, 10^{-4}, 10^{-3}, 10^{-2}, 10^{-1}\}\); kernel in {rbf, linear}; `need_proba=True`.
 

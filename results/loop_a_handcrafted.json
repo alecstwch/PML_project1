@@ -1,0 +1,17 @@
+{
+  "extract_s": 63.705579394998495,
+  "svm_s": 36.47437252099917,
+  "test_acc": 0.688212927756654,
+  "macro_f1": 0.5194401267592057,
+  "baseline_acc": 0.6221374045801527,
+  "baseline_f1": 0.47043616682337924,
+  "faster": true,
+  "acc_ok": true,
+  "f1_ok": true,
+  "commit": true,
+  "best_params": {
+    "kernel": "rbf",
+    "C": 10,
+    "gamma": "scale"
+  }
+}

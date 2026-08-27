@@ -1,5 +1,5 @@
 model,features,val_acc,test_acc,macro_f1,best_params
-SVM,handcrafted,0.6450381679389313,0.6221374045801527,0.47043616682337924,"{'kernel': 'linear', 'C': 0.1, 'gamma': 'scale'}"
+SVM,handcrafted,0.6679389312977099,0.688212927756654,0.5194401267592057,"{'kernel': 'rbf', 'C': 10, 'gamma': 'scale'}"
 SVM,deep (frozen EffNet),0.8282442748091603,0.8206106870229007,0.6979772903646144,"{'kernel': 'rbf', 'C': 100, 'gamma': 0.0001}"
 SVM-linear (ablation),deep (frozen EffNet),0.8206106870229007,0.8053435114503816,0.6837798205773922,"{'kernel': 'linear', 'C': 0.1}"
 SVM,deep PCA-256,0.7977099236641222,0.7900763358778626,0.6090600199195503,"{'kernel': 'rbf', 'C': 10, 'gamma': 'scale'}"
