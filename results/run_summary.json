@@ -1,0 +1,152 @@
+{
+  "n_csv": 1747,
+  "n_kept": 1746,
+  "n_missing": 0,
+  "n_corrupt": 1,
+  "split": {
+    "train": 1222,
+    "val": 262,
+    "test": 262
+  },
+  "results": [
+    {
+      "model": "SVM",
+      "features": "handcrafted",
+      "val_acc": 0.6450381679389313,
+      "test_acc": 0.6221374045801527,
+      "macro_f1": 0.47043616682337924,
+      "best_params": {
+        "kernel": "linear",
+        "C": 0.1,
+        "gamma": "scale"
+      }
+    },
+    {
+      "model": "SVM",
+      "features": "deep (frozen EffNet)",
+      "val_acc": 0.8282442748091603,
+      "test_acc": 0.8206106870229007,
+      "macro_f1": 0.6979772903646144,
+      "best_params": {
+        "kernel": "rbf",
+        "C": 100,
+        "gamma": 0.0001
+      }
+    },
+    {
+      "model": "SVM-linear (ablation)",
+      "features": "deep (frozen EffNet)",
+      "val_acc": 0.8206106870229007,
+      "test_acc": 0.8053435114503816,
+      "macro_f1": 0.6837798205773922,
+      "best_params": {
+        "kernel": "linear",
+        "C": 0.1
+      }
+    },
+    {
+      "model": "SVM",
+      "features": "deep PCA-256",
+      "val_acc": 0.7977099236641222,
+      "test_acc": 0.7900763358778626,
+      "macro_f1": 0.6090600199195503,
+      "best_params": {
+        "kernel": "rbf",
+        "C": 10,
+        "gamma": "scale"
+      }
+    },
+    {
+      "model": "EfficientNet-B0",
+      "features": "raw images",
+      "val_acc": 0.7824427480916031,
+      "test_acc": 0.767175572519084,
+      "macro_f1": 0.6517284641397751,
+      "best_params": {
+        "lr": 0.0001,
+        "dropout": 0.3,
+        "unfreeze": 20
+      }
+    },
+    {
+      "model": "XGBoost",
+      "features": "handcrafted",
+      "val_acc": 0.7786259541984732,
+      "test_acc": 0.7824427480916031,
+      "macro_f1": 0.6004552323737383,
+      "best_params": {
+        "n_estimators": 200,
+        "max_depth": 5,
+        "learning_rate": 0.05
+      }
+    },
+    {
+      "model": "XGBoost",
+      "features": "deep (frozen EffNet)",
+      "val_acc": 0.8320610687022901,
+      "test_acc": 0.816793893129771,
+      "macro_f1": 0.6800370443771383,
+      "best_params": {
+        "n_estimators": 500,
+        "max_depth": 3,
+        "learning_rate": 0.05
+      }
+    },
+    {
+      "model": "ResNet-50",
+      "features": "raw images",
+      "val_acc": 0.8206106870229007,
+      "test_acc": 0.8091603053435115,
+      "macro_f1": 0.6774479971180614,
+      "best_params": {
+        "lr": 1e-05,
+        "dropout": 0.3,
+        "unfreeze": 20
+      }
+    },
+    {
+      "model": "EfficientNet-B0 (no MixUp)",
+      "features": "raw images",
+      "val_acc": 0.7862595419847328,
+      "test_acc": 0.7786259541984732,
+      "macro_f1": 0.6722220346050177,
+      "best_params": {
+        "lr": 1e-05,
+        "dropout": 0.3,
+        "unfreeze": 20,
+        "mixup": false
+      }
+    },
+    {
+      "model": "Ensemble",
+      "features": "SVM-deep + EffNet",
+      "val_acc": null,
+      "test_acc": 0.8091603053435115,
+      "macro_f1": 0.6476925404696792,
+      "best_params": {
+        "combine": "mean_proba"
+      }
+    },
+    {
+      "model": "Ensemble",
+      "features": "SVM-deep + EffNet + ResNet",
+      "val_acc": null,
+      "test_acc": 0.8435114503816794,
+      "macro_f1": 0.7107452193852272,
+      "best_params": {
+        "combine": "mean_proba"
+      }
+    },
+    {
+      "model": "SVM-deep + residual rule",
+      "features": "deep (frozen EffNet)",
+      "val_acc": 0.6793893129770993,
+      "test_acc": 0.6374045801526718,
+      "macro_f1": 0.5983272645591297,
+      "best_params": {
+        "tau": 0.6,
+        "delta": 0.15
+      }
+    }
+  ]
+}

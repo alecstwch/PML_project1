@@ -1,0 +1,20 @@
+              precision    recall  f1-score   support
+
+     Healthy       0.59      0.56      0.57        41
+       Miner       0.53      0.53      0.53        58
+        Rust       0.61      0.81      0.70        80
+       Phoma       0.84      0.79      0.81        52
+  Cercospora       0.43      0.14      0.21        22
+       Mixed       0.00      0.00      0.00         9
+
+    accuracy                           0.62       262
+   macro avg       0.50      0.47      0.47       262
+weighted avg       0.60      0.62      0.60       262
+
+{
+  "acc": 0.6221374045801527,
+  "macro_f1": 0.47043616682337924,
+  "weighted_f1": 0.5992120883579224,
+  "macro_precision": 0.49894683136265666,
+  "macro_recall": 0.4721305905336603
+}

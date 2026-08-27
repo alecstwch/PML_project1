@@ -1,0 +1,30 @@
+# Data (course zip forbids shipping images/CSV; too large for GitHub)
+coffee-datasets/
+dataset-ninja/
+**/BRACOL*/
+**/BRACOL_*/
+
+# Trained weights and feature caches (reproducible from the notebook)
+models/
+features/*.npz
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+
+# Editor / OS
+.cursor/
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+.DS_Store
+
+# Local WSL helpers / logs
+*.log
+terminals/

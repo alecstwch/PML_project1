@@ -1,0 +1,14 @@
+numpy
+pandas
+matplotlib
+seaborn
+opencv-python
+Pillow
+tqdm
+scikit-learn
+xgboost
+scikit-image
+tensorflow
+imagehash
+# tests only:
+pytest
