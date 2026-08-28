@@ -44,7 +44,7 @@ def test_white_background_mask_zeros_background_bins():
 
 
 def test_handcrafted_extractor_cache(tmp_leaf_dir, tmp_path):
-    ds = LeafDataset(tmp_leaf_dir["csv"], tmp_leaf_dir["images"], check_jpeg=False)
+    ds = LeafDataset(tmp_leaf_dir["csv"], tmp_leaf_dir["images"])
     ds.load_and_match()
     split = TrainValTestSplit.make(ds, seed=42)
     cache = str(tmp_path / "handcrafted.npz")
@@ -63,7 +63,7 @@ class _StubBackbone:
 
 
 def test_frozen_deep_stub_shape_and_cache(tmp_leaf_dir, tmp_path):
-    ds = LeafDataset(tmp_leaf_dir["csv"], tmp_leaf_dir["images"], check_jpeg=False)
+    ds = LeafDataset(tmp_leaf_dir["csv"], tmp_leaf_dir["images"])
     ds.load_and_match()
     split = TrainValTestSplit.make(ds, seed=42)
     cache = str(tmp_path / "frozen.npz")

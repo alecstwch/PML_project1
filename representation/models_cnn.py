@@ -13,7 +13,7 @@ from evaluation.metrics import classification_metrics
 from evaluation.plots import save_and_show
 from evaluation.rules import apply_mixup
 from optimization.loop import LearnerLoop, class_weight_dict
-from representation.constants import IMG_SIZE, RANDOM_STATE
+from representation.constants import IMG_SIZE, RANDOM_STATE, STRESS_NAMES
 from representation.dataset import LeafDataset, TrainValTestSplit
 
 
@@ -94,7 +94,7 @@ class EfficientNetPipeline(LearnerLoop):
             {"lr": 1e-5, "dropout": 0.3, "unfreeze": 20},
         ]
         self.ingest_hsv_crop = ingest_hsv_crop
-        self.num_classes = 6
+        self.num_classes = 0
         self.model = None
         self.X_train = self.X_val = self.X_test = None
         self.y_train = self.y_val = self.y_test = None
@@ -110,7 +110,9 @@ class EfficientNetPipeline(LearnerLoop):
         self.y_train = df.iloc[self.split.train_idx]["predominant_stress"].values.astype(np.int32)
         self.y_val = df.iloc[self.split.val_idx]["predominant_stress"].values.astype(np.int32)
         self.y_test = df.iloc[self.split.test_idx]["predominant_stress"].values.astype(np.int32)
-        self.num_classes = int(max(6, self.y_train.max() + 1))
+        self.num_classes = int(self.y_train.max() + 1)
+        names = [STRESS_NAMES[i] for i in range(self.num_classes)]
+        self.class_names = names
 
     @staticmethod
     def _backbone(model):
@@ -212,7 +214,7 @@ class EfficientNetPipeline(LearnerLoop):
         self._unfreeze_last(model, 20)
         model = self._train_keras(model, self.epochs_ft, lr=1e-5, unfreeze_note="phase2")
         self.model = model
-        self._plot_curves("effnet_default")
+        self._plot_curves(f"{self.name}_default")
         pred_val = np.argmax(model.predict(self.X_val, verbose=0), axis=1)
         self.val_metrics = classification_metrics(self.y_val, pred_val)
         self.best_params = {"lr": 1e-5, "dropout": 0.3, "unfreeze": 20}

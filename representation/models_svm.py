@@ -79,6 +79,7 @@ class SVMPipeline(LearnerLoop):
         self._log(f"ingest  scaling {n} x {d}")
         t1 = time.perf_counter()
         self.scaled, self.scaler = scale_pack(self.pack)
+        self.y_train = self.pack.y_train
         self._log(f"ingest  done in {fmt_hms(time.perf_counter() - t1)}")
 
     def fit(self) -> None:

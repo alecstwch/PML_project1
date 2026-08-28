@@ -13,7 +13,9 @@ os.environ.setdefault("MPLBACKEND", "Agg")
 import nbformat
 from nbclient.client import NotebookClient
 
-NB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "P1_notebook.ipynb")
+NB_PATH = os.environ.get("NB_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "P1_notebook.ipynb"))
+if not os.path.isabs(NB_PATH):
+    NB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), NB_PATH)
 START_AT = int(os.environ.get("START_AT", "0"))
 # Comma-separated notebook cell indices to run, e.g. ONLY_CELLS=2,4,12,14,21
 ONLY_CELLS = {
@@ -22,7 +24,8 @@ ONLY_CELLS = {
 
 
 def main() -> int:
-    os.chdir(os.path.dirname(NB_PATH))
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    print(f"Notebook: {NB_PATH}", flush=True)
     nb = nbformat.read(NB_PATH, as_version=4)
     client = NotebookClient(
         nb,

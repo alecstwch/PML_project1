@@ -14,7 +14,7 @@ This report describes a six-class classifier for the predominant biotic stress o
 
 ResNet-50 is run as a third method because it is the backbone family used by Esgario et al. (2020). XGBoost is kept as a cheap baseline on the same cached vectors. MixUp, a probability ensemble, and a residual rule for the rare Mixed class are extra checks, not replacements for the official 6-class task.
 
-Numeric scores below come from a full run of `P1_notebook.ipynb` (WSL GPU kernel). They are also stored in `results/final_results.csv`. After `688.jpg` was repaired, **1,747** rows are kept (0 missing, 0 corrupt). Feature caches were rebuilt to that table. The split is 1,222 / 262 / 263.
+Numeric scores in the main tables come from a full run of `P1_notebook.ipynb` (WSL GPU kernel) and are stored in `results/final_results.csv`. Dataset load is complete: every CSV row has a JPEG (**1,747** images). The official split is 1,222 / 262 / 263. A separate Esgario-style **five-class** run (`P1_no_mixed_notebook.ipynb`, Mixed dropped, 1,685 images) is reported in Section 7.1.
 
 ---
 
@@ -26,12 +26,14 @@ Numeric scores below come from a full run of `P1_notebook.ipynb` (WSL GPU kernel
 4. Procedure — Model 1 (SVM)
 5. Procedure — Model 2 (EfficientNet)
 6. Extra methods
-7. Findings
+7. Findings (6-class official)
+7.1 Five-class Esgario protocol
 8. Comparison with literature
 9. Conclusions
 10. References
 - Appendix A — Hyperparameter grids
 - Appendix B — Submission layout
+- Appendix C — How to run 6-class vs 5-class
 
 ---
 
@@ -41,8 +43,6 @@ Coffee production is reduced by leaf miner, rust, brown leaf spot (phoma) and ce
 
 The two official models were chosen for different reasons. SVM with an RBF kernel is a standard strong learner on a few thousand samples with high-dimensional embeddings, and the C / gamma grid is easy to plot. EfficientNet-B0 is a compact convolutional network that can be fine-tuned on the raw pixels. Together they cover criterion (b) of the project (two supervised methods) and criterion (c) (two feature types that are not a small variant of the same idea).
 
-The reader of this report is assumed to know basic supervised learning (train / validation / test, accuracy, F1, a confusion matrix) but not the BRACOL papers in detail. Those papers are cited in Section 8 with the numbers taken from the published tables, not from memory.
-
 ---
 
 ## 2. Dataset and split
@@ -51,7 +51,7 @@ The reader of this report is assumed to know basic supervised learning (train / 
 
 The images come from the BRACOL leaf set collected in Espírito Santo, Brazil (Esgario et al., 2020). Leaves were photographed from the abaxial side on a white background with five phones: ASUS Zenfone 2, Xiaomi Redmi 5A, Xiaomi S2, Galaxy S8 and iPhone 6S.
 
-The CSV has **1,747** rows. A row is kept only if `{id}.jpg` exists and the JPEG fully decodes. Missing files were filled from Dataset Ninja (**Coffee Leaf Biotic Stress**) and from Roboflow/YOLO dumps already on disk, so this run has **0 missing files** and **0 corrupt JPEGs** (`688.jpg` was repaired). **1,747** rows are kept. Every JPEG on disk is **2048×1024**; models resize to 224×224.
+The CSV has **1,747** rows and every `{id}.jpg` is present, so `LeafDataset.load_and_match()` keeps the full table. There is no missing/corrupt JPEG scan at load time. Every JPEG on disk is **2048×1024**; models resize to 224×224.
 
 Class counts on the loaded table (Healthy is no longer the 142 of an earlier incomplete download):
 
@@ -202,7 +202,7 @@ A small grid over learning rate \(\{10^{-4}, 10^{-5}\}\) and last-20-layer unfre
 
 ---
 
-## 7. Findings
+## 7. Findings (6-class official)
 
 Full notebook run on the WSL GPU kernel (`pml-wsl-gpu`). Dataset: 1,747 kept images, split 1,222 / 262 / 263. Values from `results/final_results.csv`.
 
@@ -257,6 +257,42 @@ Do not treat a previous XGBoost run (about 82% accuracy on a similar split) as a
 
 ---
 
+## 7.1 Five-class Esgario protocol
+
+This experiment is **not** the official artefact. `P1_no_mixed_notebook.ipynb` drops `predominant_stress == 5` **before** the split so the label set matches Esgario et al.: five classes, **1,685** images. Feature caches and result tags use `_nomix` so the 6-class files stay intact. The residual Mixed rule is not run (no class 5).
+
+Class counts after the drop:
+
+| Label | Name | Count |
+|---|---|---|
+| 0 | Healthy | 272 |
+| 1 | Miner | 387 |
+| 2 | Rust | 531 |
+| 3 | Phoma | 348 |
+| 4 | Cercospora | 147 |
+
+Split (same 70 / 15 / 15 ratios, new indices): **1,179 / 253 / 253**. Comparison target: Esgario ResNet50 **95.63%** accuracy (1,685 images, 70/15/15, HSV-S crop). We still use a random stratified split and a simpler HSV-S crop, so a remaining gap is expected.
+
+Numbers below are from `P1_no_mixed_notebook.ipynb` / `results/final_results_nomix.csv`.
+
+| Model | Features | Val acc | Test acc | Macro F1 | Locked config |
+|---|---|---|---|---|---|
+| SVM | handcrafted HOG 16×16 | 70.4% | 70.4% | 0.597 | RBF C=10 γ=scale |
+| SVM | frozen EfficientNet | 87.0% | 86.6% | 0.807 | RBF C=10 γ=scale |
+| SVM-linear (ablation) | frozen EfficientNet | 84.2% | 86.2% | 0.803 | linear C=0.1 |
+| SVM | deep PCA-256 | 85.0% | 80.6% | 0.729 | RBF C=10 γ=scale |
+| EfficientNet-B0 | raw images, HSV-S crop, MixUp | 85.4% | 84.6% | 0.815 | lr=1e-5, dropout=0.3, unfreeze=20 |
+| XGBoost | handcrafted | 84.2% | 81.0% | 0.717 | n_est=200, depth=5, lr=0.1 |
+| XGBoost | frozen EfficientNet | 84.6% | 82.6% | 0.754 | n_est=500, depth=3, lr=0.05 |
+| ResNet-50 | raw images, HSV-S crop | 85.0% | **85.8%** | **0.835** | lr=1e-5, dropout=0.3, unfreeze=20 |
+| EfficientNet-B0 (no MixUp) | raw images, HSV-S crop | 83.0% | 83.4% | 0.802 | lr=1e-5, mixup off |
+| Ensemble | SVM-deep + EffNet | — | 86.6% | 0.830 | mean probability |
+| Ensemble | SVM-deep + EffNet + ResNet | — | 87.7% | 0.836 | mean probability |
+
+Dropping Mixed lifts frozen-deep SVM from 82.1% (6-class) to 86.6% (5-class), and ResNet-50 from 80.9% to 85.8%. That ResNet-50 row is the matched-label comparison with Esgario’s 95.63%. The remaining ~10 point gap is protocol / split / crop, not missing files and not the extra Mixed class.
+
+---
+
 ## 8. Comparison with literature (criterion f)
 
 Esgario, J.G.M., Krohling, R.A. and Ventura, J.A. (2020), “Deep learning for classification and severity estimation of coffee leaf biotic stress”, *Computers and Electronics in Agriculture*, 169, 105162.
@@ -272,14 +308,16 @@ They do not headline a 93% macro F1. They used **1,685** images and **five** cla
 
 Manso, G.L., Knidel, H., Krohling, R.A. and Ventura, J.A. (2019) is the earlier segmentation work (miner vs rust, handcrafted features on lesions) that the 2020 paper extends.
 
-A gap between our ResNet-50 test accuracy (80.9%) and 95.63% is expected, and should be explained by:
+A gap between our 6-class ResNet-50 test accuracy (80.9%) and 95.63% is expected, and should be explained by:
 
-1. **Missing files are filled.** The remaining gap is not “20% of the CSV had no JPEG”. This run uses all **1,747** CSV rows (0 missing, 0 corrupt after repairing `688.jpg`).
+1. **Dataset load is complete.** Every CSV row has a JPEG (1,747 files). The remaining gap is not missing images.
 2. **Six classes including Mixed**, versus five. Mixed is rare and easy to confuse with a single disease.
-3. **Specialist leaf crop.** EfficientNet ingest now uses an HSV saturation crop before 224×224 (Esgario-style). The ResNet-50 comparison row above was trained without that crop.
+3. **Specialist leaf crop.** EfficientNet ingest uses an HSV saturation crop before 224×224. The 6-class ResNet-50 comparison row was trained without that crop.
 4. **A different random split**, even at the same 70 / 15 / 15 ratios.
 
-Our ResNet-50 run is the fairest row to put next to their ResNet50, with those caveats written beside the number.
+The Mixed-class gap is **closed** in the 5-class notebook (`P1_no_mixed_notebook.ipynb`): Mixed is dropped before the split, leaving 1,685 images and five labels, matching Esgario’s count. Remaining gap vs 95.63% on that run is protocol / split / crop (our HSV-S crop is simpler, MixUp is not theirs, the split draw is different), not missing files and not the extra Mixed class. Numbers for that experiment are in Section 7.1.
+
+Our 6-class ResNet-50 run is the fairest row to put next to their ResNet50 **when Mixed is kept**. For a matched label set, use the 5-class ResNet-50 row.
 
 ---
 
@@ -287,9 +325,11 @@ Our ResNet-50 run is the fairest row to put next to their ResNet50, with those c
 
 The project is built as a shared data corridor and then a full grading loop per official model: SVM first, EfficientNet second. Handcrafted and frozen-deep vectors are different representations. The split is stored and reused. Test is not used to pick C, gamma, learning rate or MixUp thresholds.
 
-On this baseline run, the strongest **official** single model is SVM on frozen EfficientNet embeddings (82.1% test acc, 0.698 macro F1). Fine-tuned EfficientNet-B0 with an HSV-S leaf crop is 79.8% / 0.682. A three-way probability ensemble with ResNet-50 reaches 84.4% / 0.711, which is extra, not a substitute for the two official methods. Mixed is kept. The residual Mixed rule hurt accuracy and is not used as the official predictor.
+On the official 6-class run, the strongest **official** single model is SVM on frozen EfficientNet embeddings (82.1% test acc, 0.698 macro F1). Fine-tuned EfficientNet-B0 with an HSV-S leaf crop is 79.8% / 0.682. A three-way probability ensemble with ResNet-50 reaches 84.4% / 0.711, which is extra, not a substitute for the two official methods. Mixed is kept in that notebook. The residual Mixed rule hurt accuracy and is not used as the official predictor.
 
-The honest comparison with Esgario et al. is a ResNet-50 trained on our 6-class subset, not a claim that EfficientNet-B0 should match 95.63% on a different task.
+The honest 6-class comparison with Esgario et al. is a ResNet-50 trained with Mixed included, not a claim that EfficientNet-B0 should match 95.63% on a different task. The 5-class notebook closes the Mixed-class difference; ResNet-50 there reaches 85.8% test acc / 0.835 macro F1 versus their 95.63%. The remaining gap is protocol.
+
+The teacher-facing entry point is `P1_run.py` (default: 6-class SVM-RBF + EfficientNet). See Appendix C.
 
 ---
 
@@ -323,6 +363,7 @@ The honest comparison with Esgario et al. is a ResNet-50 trained on our 6-class 
 
 ```
 P1_Soare_Alecsandru_{group}/
+    P1_run.py
     P1_notebook.py
     p1_core.py
 P1_Soare_Alecsandru_{group}_doc/
@@ -330,4 +371,25 @@ P1_Soare_Alecsandru_{group}_doc/
     figures used in the PDF
 ```
 
-Do not zip the leaf images or the CSV. Unit tests in `tests/` are for local checks and are not required in the zip. The GitHub layout may use `representation/`, `evaluation/`, and `optimization/` packages; `p1_core.py` remains a facade so the notebook can still `from p1_core import ...`.
+Do not zip the leaf images or the CSV. Unit tests in `tests/` are for local checks and are not required in the zip. The GitHub layout may use `representation/`, `evaluation/`, and `optimization/` packages; `p1_core.py` remains a facade so the notebook can still `from p1_core import ...`. For the course zip, flatten those packages into `p1_core.py` later.
+
+---
+
+## Appendix C — How to run 6-class vs 5-class
+
+**6-class (official, Mixed kept, 1,747 images)**
+
+- Notebook: `P1_notebook.ipynb` (WSL GPU kernel `pml-wsl-gpu`).
+- Linear script: `P1_notebook.py`.
+- CLI: `python P1_run.py` (SVM-RBF + EfficientNet) or `python P1_run.py --models svm`.
+- Caches: `features/split_ids.npz`, `handcrafted.npz`, `frozen_deep.npz`.
+- Table: `results/final_results.csv`.
+
+**5-class (Esgario-style, Mixed dropped, 1,685 images)**
+
+- Notebook: `P1_no_mixed_notebook.ipynb`.
+- CLI: `python P1_run.py --drop-mixed --models resnet` (or `--models all`).
+- Caches: `features/split_ids_nomix.npz`, `handcrafted_nomix.npz`, `frozen_deep_nomix.npz`.
+- Table: `results/final_results_nomix.csv`. Result and figure tags use `_nomix` so the 6-class files are not overwritten.
+
+Dataset path defaults to `../coffee-datasets/coffee-datasets/leaf`. Override with `--data-dir`. Never commit leaf JPEGs, `models/*.keras`, or `features/*.npz`.

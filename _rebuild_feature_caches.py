@@ -21,11 +21,10 @@ def main() -> int:
     paths = resolve_paths()
     report_compute()
 
-    dataset = LeafDataset(paths["csv_path"], paths["image_dir"], check_jpeg=True)
+    dataset = LeafDataset(paths["csv_path"], paths["image_dir"])
     dataset.load_and_match()
     n = len(dataset.frame)
-    print(f"n_csv={dataset.n_csv} n_kept={n} missing={dataset.n_missing} corrupt={dataset.n_corrupt}")
-    print("corrupt ids:", dataset.corrupt_ids)
+    print(f"n_csv={dataset.n_csv} n_kept={n} drop_mixed={dataset.drop_mixed}")
 
     split_path = os.path.join(paths["features_dir"], "split_ids.npz")
     split = None

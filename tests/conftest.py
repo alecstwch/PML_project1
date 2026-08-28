@@ -46,9 +46,6 @@ def tmp_leaf_dir(tmp_path):
             rows.append((idx, label, miner, rust, phoma, cerc, 0 if label == 0 else 2))
             idx += 1
 
-    # One CSV row with no image file.
-    rows.append((9999, 0, 0, 0, 0, 0, 0))
-
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["id", "predominant_stress", "miner", "rust", "phoma", "cercospora", "severity"])

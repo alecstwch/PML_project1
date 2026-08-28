@@ -36,7 +36,7 @@ from representation.constants import (
     SEVERITY_NAMES,
     STRESS_NAMES,
 )
-from representation.dataset import LeafDataset, TrainValTestSplit, is_jpeg_valid
+from representation.dataset import LeafDataset, TrainValTestSplit
 from representation.features import (
     FeatureExtractor,
     FeaturePack,
@@ -60,12 +60,7 @@ from representation.models_cnn import (
     load_rgb_batch_hsv_crop,
 )
 from representation.models_svm import SVMPipeline
-from representation.paths import (
-    _leaf_id_from_filename,
-    copy_missing_leaf_jpgs,
-    extra_image_roots,
-    resolve_paths,
-)
+from representation.paths import resolve_paths
 
 # Back-compat alias used internally before the split.
 _sample_weights = sample_weights
@@ -89,11 +84,7 @@ __all__ = [
     "fmt_hms",
     "resolve_paths",
     "report_compute",
-    "_leaf_id_from_filename",
-    "copy_missing_leaf_jpgs",
-    "extra_image_roots",
     "save_and_show",
-    "is_jpeg_valid",
     "leaf_mask",
     "read_bgr",
     "l2_normalize",

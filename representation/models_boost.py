@@ -28,6 +28,7 @@ class XGBoostPipeline(LearnerLoop):
     def ingest(self) -> None:
         """Scale features with a scaler fit on train only."""
         self.scaled, _ = scale_pack(self.pack)
+        self.y_train = self.pack.y_train
 
     def fit(self) -> None:
         """Train a small default booster."""

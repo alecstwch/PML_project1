@@ -23,7 +23,7 @@ class LearnerLoop(ABC):
         self.name = name
         self.results_dir = results_dir
         self.figures_dir = figures_dir
-        self.class_names = class_names or [STRESS_NAMES[i] for i in range(6)]
+        self.class_names = class_names or []
         self.y_pred_test: Optional[np.ndarray] = None
         self.y_true_test: Optional[np.ndarray] = None
         self.y_pred_val: Optional[np.ndarray] = None
@@ -84,6 +84,17 @@ class LearnerLoop(ABC):
     def run(self) -> Dict[str, float]:
         """Run the five steps in order."""
         self.ingest()
+        if not self.class_names:
+            y = getattr(self, "y_train", None)
+            if y is None:
+                pack = getattr(self, "scaled", None) or getattr(self, "pack", None)
+                if pack is not None:
+                    y = getattr(pack, "y_train", None)
+            if y is None:
+                y = getattr(self, "y_true_test", None)
+            if y is not None:
+                n = int(np.max(y) + 1)
+                self.class_names = [STRESS_NAMES[i] for i in range(n)]
         self.fit()
         self.search()
         self.refit()

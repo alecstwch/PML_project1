@@ -45,7 +45,7 @@ def main() -> int:
     paths = resolve_paths()
     report_compute()
 
-    dataset = LeafDataset(paths["csv_path"], paths["image_dir"], check_jpeg=True)
+    dataset = LeafDataset(paths["csv_path"], paths["image_dir"])
     dataset.load_and_match()
     split = TrainValTestSplit.load(os.path.join(paths["features_dir"], "split_ids.npz"))
     print("n_kept", len(dataset.frame), "split", split.sizes())

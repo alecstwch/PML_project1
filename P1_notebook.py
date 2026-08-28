@@ -28,7 +28,6 @@ import seaborn as sns
 from p1_core import (
     RANDOM_STATE, STRESS_NAMES, BRACOL_CLASSES, BRACOL_TO_STRESS,
     resolve_paths, save_and_show, report_compute,
-    copy_missing_leaf_jpgs, extra_image_roots,
     LeafDataset, TrainValTestSplit,
     HandcraftedFeatures, FrozenDeepFeatures, PCAFeatures, scale_pack,
     SVMPipeline, XGBoostPipeline, EfficientNetPipeline, ResNetPipeline,
@@ -48,54 +47,17 @@ print("Image folder exists:", os.path.isdir(PATHS["image_dir"]))
 report_compute()
 
 """
-## 2. Dataset corridor — extra images, then load
+## 2. Dataset corridor — load the complete table
 
-The official Mendeley zip is corrupted here, so the CSV has rows whose `{id}.jpg` is missing. Dataset Ninja hosts the same BRACOL leaf photos under the name **Coffee Leaf Biotic Stress** (Supervisely format, 500 images). We download that dump, then also copy any still-missing ids from the Roboflow/YOLO exports already on disk (`123_jpg.rf....jpg` → `123.jpg`). Count missing and corrupt files at runtime; do not hard-code 1,402.
+Every CSV row has a matching `{id}.jpg` (1,747 images). Mixed (class 5) is kept for this official 6-class run. The Esgario-style 5-class experiment lives in `P1_no_mixed_notebook.ipynb`.
 """
 
 # --- cell 4 ---
-ninja_dir = PATHS["ninja_dir"]
-os.makedirs(ninja_dir, exist_ok=True)
-
-def _ninja_has_jpegs(root):
-    if not os.path.isdir(root):
-        return False
-    for dirpath, _, files in os.walk(root):
-        if any(name.lower().endswith(".jpg") for name in files):
-            return True
-    return False
-
-if not _ninja_has_jpegs(ninja_dir):
-    try:
-        import dataset_tools as dtools
-    except ImportError:
-        import subprocess, sys
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "dataset-tools"])
-        import dataset_tools as dtools
-    try:
-        # Dataset Ninja listing name. "BRACOL" is the Mendeley title for the same collection.
-        dtools.download(dataset="Coffee Leaf Biotic Stress", dst_dir=ninja_dir)
-    except Exception as e:
-        print("Dataset Ninja download failed:", e)
-        print("Will still copy missing ids from YOLO/Roboflow folders on disk.")
-
-n_copied = copy_missing_leaf_jpgs(
-    PATHS["csv_path"], PATHS["image_dir"], extra_image_roots(PATHS),
-)
-print("Copied missing leaf JPEGs:", n_copied)
-if n_copied:
-    for fname in ("handcrafted.npz", "frozen_deep.npz"):
-        p = os.path.join(PATHS["features_dir"], fname)
-        if os.path.isfile(p):
-            os.remove(p)
-            print("Deleted stale feature cache:", p)
-
-dataset = LeafDataset(PATHS["csv_path"], PATHS["image_dir"], check_jpeg=True)
+dataset = LeafDataset(PATHS["csv_path"], PATHS["image_dir"], drop_mixed=False)
 df = dataset.load_and_match()
 summary = dataset.eda_summary()
 print(json.dumps({k: v for k, v in summary.items() if k != "class_counts"}, indent=2))
 print("Class counts:", summary["class_counts"])
-print("Corrupt ids:", dataset.corrupt_ids)
 print(df.head())
 
 """
@@ -568,7 +530,7 @@ Esgario et al. (2020), *Computers and Electronics in Agriculture*:
 - ResNet50 single-task **95.63%** accuracy; multi-task **95.24%**, precision 95.29%, recall 91.14%.
 - They crop the leaf with an HSV-S threshold before 224×224.
 
-We use a 6-class label that includes Mixed. Missing leaf JPEGs are filled from Dataset Ninja and the Roboflow exports when those files exist. Those two facts, not architecture names, explain most of the gap versus Esgario.
+We use a 6-class label that includes Mixed (1,747 images). Dataset load is complete: every CSV row has a JPEG. A matched 5-class protocol is `P1_no_mixed_notebook.ipynb`. Remaining gap vs 95.63% is protocol / split / crop, not missing files.
 """
 
 # --- cell 43 ---
@@ -594,7 +556,7 @@ save_and_show(fig, "final_accuracy_bars.png", PATHS["figures_dir"])
 - Two representations (handcrafted vs frozen CNN embeddings) and two official models (SVM, EfficientNet) are implemented end to end, each with its own ingest → fit → search → refit → report loop.
 - The split is shared. Test is not used to pick hyperparameters.
 - Mixed (class 5) is kept. The residual rule is an extra, not a replacement of the official 6-class task.
-- ResNet-50 is the designated third method and the closest architecture family to Esgario et al. Numbers are not directly comparable (5 vs 6 classes, different image subset, they crop the leaf).
+- ResNet-50 is the designated third method and the closest architecture family to Esgario et al. Numbers in this notebook are not directly comparable (6 vs 5 classes). See `P1_no_mixed_notebook.ipynb` for the 5-class protocol.
 - MixUp follows Esgario's augmentation experiments; it is not presented as a new idea.
 
 Next cell writes a compact JSON of the run so the report can copy numbers without re-typing them.
@@ -604,8 +566,7 @@ Next cell writes a compact JSON of the run so the report can copy numbers withou
 payload = {
     "n_csv": summary["n_csv"],
     "n_kept": summary["n_kept"],
-    "n_missing": summary["n_missing"],
-    "n_corrupt": summary["n_corrupt"],
+    "drop_mixed": summary["drop_mixed"],
     "split": split.sizes(),
     "results": results_rows(),
 }

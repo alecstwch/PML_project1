@@ -47,7 +47,7 @@ def main() -> int:
     if tuple(HOG_CELL) != (16, 16):
         raise SystemExit(f"Expected HOG_CELL (16, 16), got {HOG_CELL}")
 
-    dataset = LeafDataset(paths["csv_path"], paths["image_dir"], check_jpeg=True)
+    dataset = LeafDataset(paths["csv_path"], paths["image_dir"])
     dataset.load_and_match()
     split = TrainValTestSplit.load(os.path.join(paths["features_dir"], "split_ids.npz"))
     n_split = len(split.train_idx) + len(split.val_idx) + len(split.test_idx)

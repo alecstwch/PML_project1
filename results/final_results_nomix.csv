@@ -1,0 +1,12 @@
+model,features,val_acc,test_acc,macro_f1,best_params
+SVM,handcrafted,0.7035573122529645,0.7035573122529645,0.5974487654696826,"{'kernel': 'rbf', 'C': 10, 'gamma': 'scale'}"
+SVM,deep (frozen EffNet),0.8695652173913043,0.8656126482213439,0.8070179920179921,"{'kernel': 'rbf', 'C': 10, 'gamma': 'scale'}"
+SVM-linear (ablation),deep (frozen EffNet),0.841897233201581,0.8616600790513834,0.8034730073347408,"{'kernel': 'linear', 'C': 0.1}"
+SVM,deep PCA-256,0.849802371541502,0.8063241106719368,0.7293048719801793,"{'kernel': 'rbf', 'C': 10, 'gamma': 'scale'}"
+EfficientNet-B0,raw images,0.8537549407114624,0.8458498023715415,0.8146286995053307,"{'lr': 1e-05, 'dropout': 0.3, 'unfreeze': 20}"
+XGBoost,handcrafted,0.841897233201581,0.8102766798418972,0.7169843901607941,"{'n_estimators': 200, 'max_depth': 5, 'learning_rate': 0.1}"
+XGBoost,deep (frozen EffNet),0.8458498023715415,0.8260869565217391,0.754444028403056,"{'n_estimators': 500, 'max_depth': 3, 'learning_rate': 0.05}"
+ResNet-50,raw images,0.849802371541502,0.857707509881423,0.8354337716330917,"{'lr': 1e-05, 'dropout': 0.3, 'unfreeze': 20}"
+EfficientNet-B0 (no MixUp),raw images,0.8300395256916996,0.83399209486166,0.801569225719156,"{'lr': 1e-05, 'dropout': 0.3, 'unfreeze': 20, 'mixup': False}"
+Ensemble,SVM-deep + EffNet,,0.8656126482213439,0.8303284247320744,{'combine': 'mean_proba'}
+Ensemble,SVM-deep + EffNet + ResNet,,0.8774703557312253,0.8363244720826858,{'combine': 'mean_proba'}
